@@ -1,0 +1,15 @@
+{
+  "name": "ossquest",
+  "version": "1.0.0",
+  "description": "OSS Quest Deployment",
+  "scripts": {
+    "start": "node backend/server.mjs",
+    "dev": "node backend/server.mjs"
+  },
+  "dependencies": {
+    "@strands-agents/sdk": "^1.18.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  }
+}

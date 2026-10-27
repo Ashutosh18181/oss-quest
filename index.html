@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSS Quest — The first pull request you'll actually make</title>
+    <meta name="description" content="OSS Quest turns the path to your first real pull request into a guided, story-framed journey. Learn Git, find a real GitHub issue, and contribute to open source — in your language.">
+    <meta name="theme-color" content="#B4502A">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <script>
+        window.addEventListener('error', function(e) {
+            const err = document.createElement('div');
+            err.style = 'color:red; background:white; position:fixed; top:0; left:0; z-index:99999; padding:20px; border:2px solid red; font-family:monospace;';
+            err.innerHTML = '<strong>Error:</strong> ' + e.message + '<br>' + e.filename + ':' + e.lineno;
+            document.body.appendChild(err);
+        });
+    </script>
+</head>
+<body>
+    <!-- Persistent Top Bar (hidden on landing) -->
+    <header id="top-bar" class="top-bar">
+        <div class="top-bar-section top-bar-left">
+            <a href="#/" class="logo" id="logo-link">
+                <span class="logo-icon">⚔️</span>
+                <span class="logo-text">OSS Quest</span>
+            </a>
+        </div>
+        <div class="top-bar-section top-bar-center">
+            <div class="stat-pill" id="xp-pill">
+                <span class="stat-icon">⚡</span>
+                <span class="stat-value" id="xp-count">0</span>
+                <span class="stat-label">XP</span>
+            </div>
+            <div class="stat-pill" id="streak-pill">
+                <span class="stat-icon">🔥</span>
+                <span class="stat-value" id="streak-count">0</span>
+                <span class="stat-label">day streak</span>
+            </div>
+        </div>
+        <div class="top-bar-section top-bar-right">
+            <select id="lang-toggle" class="lang-toggle" aria-label="Language">
+                <option value="en">EN</option>
+                <option value="hi">हिंदी</option>
+                <option value="od">ଓଡ଼ିଆ</option>
+            </select>
+            <a href="#/profile" class="icon-btn" id="profile-btn" aria-label="Profile">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+                    <path d="M2 18c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main App Container — pages render here -->
+    <main id="app" role="main"></main>
+
+    <!-- Village Canvas Container -->
+    <div id="village-container" class="village-container" style="display: none;">
+        <canvas id="village-canvas"></canvas>
+    </div>
+
+    <!-- App UI Layer (Dialogue, HUD) -->
+    <div id="app-ui-layer" class="app-ui-layer" style="display: none;">
+        <!-- Quest HUD (Top Right) -->
+        <div class="quest-hud">
+            <div class="quest-hud-portrait">⚔️</div>
+            <div class="quest-hud-info">
+                <div id="quest-hud-title" class="quest-hud-title">Chapter 1: Welcome</div>
+                <div id="quest-hud-progress" class="quest-hud-progress">Explore the village</div>
+                <div class="quest-hud-energy">
+                    <div class="energy-bar-bg">
+                        <div id="quest-hud-energy-fill" class="energy-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <select id="hud-lang-toggle" class="hud-lang-toggle" aria-label="Language">
+                <option value="en">EN</option>
+                <option value="hi">हिंदी</option>
+                <option value="od">ଓଡ଼ିଆ</option>
+            </select>
+        </div>
+
+        <!-- Atmosphere Text (Top Center) -->
+        <div id="atmosphere-text" class="atmosphere-text"></div>
+
+        <!-- Controls Hint (Bottom Center) -->
+        <div class="controls-hint-bar">
+            WASD / arrows — move &nbsp;&middot;&nbsp; E — enter / talk
+        </div>
+
+        <!-- Dialogue Box (Bottom) -->
+        <div id="dialogue-box" class="dialogue-box">
+            <div class="dialogue-portrait-container">
+                <img id="dialogue-portrait" class="dialogue-portrait" src="" alt="Portrait" />
+            </div>
+            <div class="dialogue-main">
+                <div class="dialogue-header">
+                    <span id="dialogue-name" class="dialogue-name">Name</span>
+                    <span id="dialogue-role" class="dialogue-role">Role</span>
+                    <button id="dialogue-close-btn" class="dialogue-close-btn">
+                        Esc &middot; leave <span class="vol-icon">🔊</span>
+                    </button>
+                </div>
+                <div id="dialogue-content" class="dialogue-content">
+                    <div id="dialogue-text" class="dialogue-text"></div>
+                    <div id="dialogue-choices" class="dialogue-choices"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Build Log (For Camp Reveal inside Village) -->
+        <div id="build-log" class="build-log" style="display: none;">
+            <div class="build-log-header">
+                <span class="build-log-icon">📡</span>
+                <span class="build-log-title">Scanning repository…</span>
+            </div>
+            <ul id="build-log-entries" class="build-log-entries"></ul>
+        </div>
+    </div>
+
+    <!-- Match Result Card (fades in after camp reveal completes) -->
+    <div id="match-card" class="match-card"></div>
+
+    <script type="module" src="js/app/main.js"></script>
+</body>
+</html>
