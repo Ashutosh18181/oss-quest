@@ -1,10 +1,28 @@
 {
   "version": 2,
   "installCommand": "npm install --legacy-peer-deps",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/backend/server.mjs"
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "backend/server.mjs",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/server.mjs"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|mp3|ogg|wav))",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
