@@ -31,7 +31,38 @@ export class OverworldScene {
         this.facing = 'down';
         this.touchControls = null;
 
+        // Auto-travel feature: press 1-6 or click node to travel automatically
+        this.targetNode = null;
+        this.isAutoTravelling = false;
+        this.autoTravelSpeed = 320; // brisk, smooth travel speed
+
         this._langListener = () => this._updateHUD();
+    }
+
+    startAutoTravel(node) {
+        if (!node || !this._isUnlocked(node.id)) return;
+        const dist = Math.sqrt((node.x - this.playerPos.x)**2 + (node.y - this.playerPos.y)**2);
+        if (dist <= 14) {
+            this._running = false;
+            this.sceneManager.loadScene('village', { villageId: node.id });
+            return;
+        }
+        this.targetNode = node;
+        this.isAutoTravelling = true;
+
+        const lang = getLanguage();
+        let nodeName = node.name;
+        if (lang === 'hi' && node.name_hi) nodeName = node.name_hi;
+        else if (lang === 'od' && node.name_od) nodeName = node.name_od;
+
+        const atmoEl = document.getElementById('atmosphere-text');
+        if (atmoEl) {
+            let msg = `⚡ Auto-traveling to Quest ${node.id}: ${nodeName}…`;
+            if (lang === 'hi') msg = `⚡ क्वेस्ट ${node.id}: ${nodeName} की ओर जा रहे हैं…`;
+            else if (lang === 'od') msg = `⚡ କ୍ୱେଷ୍ଟ୍ ${node.id}: ${nodeName} କୁ ଯାଉଛନ୍ତି…`;
+            atmoEl.textContent = msg;
+            atmoEl.style.opacity = '1';
+        }
     }
 
     async start() {
@@ -110,21 +141,23 @@ export class OverworldScene {
         const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 840);
         if (hintBar) {
             if (isTouch) {
-                if (lang === 'hi') hintBar.innerHTML = "D-pad — चलें &nbsp;&middot;&nbsp; E / टैप — प्रवेश करें";
-                else if (lang === 'od') hintBar.innerHTML = "D-pad — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E / ଟ୍ୟାପ୍ — ପ୍ରବେଶ";
-                else hintBar.innerHTML = "D-pad — move &nbsp;&middot;&nbsp; E / tap — enter";
+                if (lang === 'hi') hintBar.innerHTML = "D-pad — चलें &nbsp;&middot;&nbsp; टैप / [1-6] — स्वतः यात्रा &nbsp;&middot;&nbsp; E — प्रवेश";
+                else if (lang === 'od') hintBar.innerHTML = "D-pad — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; ଟ୍ୟାପ୍ / [1-6] — ଯାତ୍ରା &nbsp;&middot;&nbsp; E — ପ୍ରବେଶ";
+                else hintBar.innerHTML = "D-pad — move &nbsp;&middot;&nbsp; Tap / [1-6] — auto-travel &nbsp;&middot;&nbsp; E — enter";
             } else {
-                if (lang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; E — प्रवेश करें";
-                else if (lang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E — ପ୍ରବେଶ କରନ୍ତୁ";
-                else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; E — enter";
+                if (lang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; <strong>[1-6] — स्वतः यात्रा</strong> &nbsp;&middot;&nbsp; E — प्रवेश";
+                else if (lang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; <strong>[1-6] — ସ୍ୱତଃ ଯାତ୍ରା</strong> &nbsp;&middot;&nbsp; E — ପ୍ରବେଶ";
+                else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; <strong>[1-6] — auto-travel</strong> &nbsp;&middot;&nbsp; E — enter";
             }
         }
 
-        // Overworld has no atmosphere toast; clear any leftover village atmosphere text
-        const atmoEl = document.getElementById('atmosphere-text');
-        if (atmoEl) {
-            atmoEl.style.opacity = '0';
-            atmoEl.textContent = '';
+        // Clear any leftover atmosphere text unless currently auto-travelling
+        if (!this.isAutoTravelling) {
+            const atmoEl = document.getElementById('atmosphere-text');
+            if (atmoEl) {
+                atmoEl.style.opacity = '0';
+                atmoEl.textContent = '';
+            }
         }
     }
 
@@ -181,10 +214,14 @@ export class OverworldScene {
     }
 
     _handleClick(e) {
-        // Direct click to enter any unlocked node on the world map
         if (this.hoverNode && this._isUnlocked(this.hoverNode.id)) {
-            this._running = false;
-            this.sceneManager.loadScene('village', { villageId: this.hoverNode.id });
+            const dist = Math.sqrt((this.hoverNode.x - this.playerPos.x)**2 + (this.hoverNode.y - this.playerPos.y)**2);
+            if (dist <= 40) {
+                this._running = false;
+                this.sceneManager.loadScene('village', { villageId: this.hoverNode.id });
+            } else {
+                this.startAutoTravel(this.hoverNode);
+            }
         }
     }
 
@@ -193,6 +230,17 @@ export class OverworldScene {
             e.preventDefault();
         }
         if (this.keys.hasOwnProperty(e.key)) this.keys[e.key] = true;
+
+        // Auto-travel feature: Press quest number 1, 2, 3, 4, 5, 6 to travel & enter
+        const num = parseInt(e.key, 10);
+        if (!isNaN(num) && num >= 1 && num <= 6) {
+            e.preventDefault();
+            const target = OVERWORLD.nodes.find(n => n.id === num);
+            if (target && this._isUnlocked(target.id)) {
+                this.startAutoTravel(target);
+                return;
+            }
+        }
         
         if (e.key.toLowerCase() === 'e') {
             for (const node of OVERWORLD.nodes) {
@@ -227,25 +275,75 @@ export class OverworldScene {
     }
 
     _update(dt) {
-        let dx = 0; let dy = 0;
-        if (this.keys.w || this.keys.ArrowUp) dy -= 1;
-        if (this.keys.s || this.keys.ArrowDown) dy += 1;
-        if (this.keys.a || this.keys.ArrowLeft) dx -= 1;
-        if (this.keys.d || this.keys.ArrowRight) dx += 1;
+        const manualMoving = this.keys.w || this.keys.s || this.keys.a || this.keys.d ||
+            this.keys.ArrowUp || this.keys.ArrowDown || this.keys.ArrowLeft || this.keys.ArrowRight;
 
-        if (dx !== 0 && dy !== 0) {
-            const length = Math.sqrt(dx*dx + dy*dy);
-            dx /= length;
-            dy /= length;
+        if (manualMoving && this.isAutoTravelling) {
+            // Cancel auto-travel immediately when player presses manual movement keys
+            this.isAutoTravelling = false;
+            this.targetNode = null;
+            const atmoEl = document.getElementById('atmosphere-text');
+            if (atmoEl) {
+                atmoEl.style.opacity = '0';
+                atmoEl.textContent = '';
+            }
         }
 
-        if (dx > 0) this.facing = 'right';
-        else if (dx < 0) this.facing = 'left';
-        else if (dy > 0) this.facing = 'down';
-        else if (dy < 0) this.facing = 'up';
+        let dx = 0; let dy = 0;
 
-        this.playerPos.x += dx * this.speed * (dt / 1000);
-        this.playerPos.y += dy * this.speed * (dt / 1000);
+        if (this.isAutoTravelling && this.targetNode) {
+            const tdx = this.targetNode.x - this.playerPos.x;
+            const tdy = this.targetNode.y - this.playerPos.y;
+            const dist = Math.sqrt(tdx * tdx + tdy * tdy);
+
+            if (dist <= 14) {
+                // Arrived at destination! Snap to node and enter
+                this.playerPos.x = this.targetNode.x;
+                this.playerPos.y = this.targetNode.y;
+                const destId = this.targetNode.id;
+                this.isAutoTravelling = false;
+                this.targetNode = null;
+                const atmoEl = document.getElementById('atmosphere-text');
+                if (atmoEl) {
+                    atmoEl.style.opacity = '0';
+                    atmoEl.textContent = '';
+                }
+                this._running = false;
+                this.sceneManager.loadScene('village', { villageId: destId });
+                return;
+            }
+
+            dx = tdx / dist;
+            dy = tdy / dist;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                this.facing = dx > 0 ? 'right' : 'left';
+            } else {
+                this.facing = dy > 0 ? 'down' : 'up';
+            }
+
+            this.playerPos.x += dx * this.autoTravelSpeed * (dt / 1000);
+            this.playerPos.y += dy * this.autoTravelSpeed * (dt / 1000);
+        } else {
+            if (this.keys.w || this.keys.ArrowUp) dy -= 1;
+            if (this.keys.s || this.keys.ArrowDown) dy += 1;
+            if (this.keys.a || this.keys.ArrowLeft) dx -= 1;
+            if (this.keys.d || this.keys.ArrowRight) dx += 1;
+
+            if (dx !== 0 && dy !== 0) {
+                const length = Math.sqrt(dx*dx + dy*dy);
+                dx /= length;
+                dy /= length;
+            }
+
+            if (dx > 0) this.facing = 'right';
+            else if (dx < 0) this.facing = 'left';
+            else if (dy > 0) this.facing = 'down';
+            else if (dy < 0) this.facing = 'up';
+
+            this.playerPos.x += dx * this.speed * (dt / 1000);
+            this.playerPos.y += dy * this.speed * (dt / 1000);
+        }
         
         // Clamp to image bounds
         const img = Assets.getImage('overworld');
@@ -319,9 +417,10 @@ export class OverworldScene {
 
             // Always-visible label pill below the node (not hover-only)
             const lang = getLanguage();
-            let labelText = node.name;
-            if (lang === 'hi' && node.name_hi) labelText = node.name_hi;
-            else if (lang === 'od' && node.name_od) labelText = node.name_od;
+            let rawName = node.name;
+            if (lang === 'hi' && node.name_hi) rawName = node.name_hi;
+            else if (lang === 'od' && node.name_od) rawName = node.name_od;
+            const labelText = `[${node.id}] ${rawName}`;
 
             this.ctx.font = 'bold 12px "Space Mono", monospace';
             const w = this.ctx.measureText(labelText).width + 18;
@@ -341,6 +440,32 @@ export class OverworldScene {
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
             }
+        }
+
+        // Auto-Travel Trajectory & Target Reticle
+        if (this.isAutoTravelling && this.targetNode) {
+            const time = performance.now();
+            this.ctx.save();
+            
+            // Animated golden dashed path line
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.playerPos.x, this.playerPos.y);
+            this.ctx.lineTo(this.targetNode.x, this.targetNode.y);
+            this.ctx.strokeStyle = '#FFD700';
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([8, 6]);
+            this.ctx.lineDashOffset = -time / 20;
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+
+            // Pulsing target beacon around destination
+            const targetPulse = (time % 1000) / 1000;
+            this.ctx.beginPath();
+            this.ctx.arc(this.targetNode.x, this.targetNode.y, 18 + targetPulse * 22, 0, Math.PI * 2);
+            this.ctx.strokeStyle = `rgba(255, 215, 0, ${1 - targetPulse})`;
+            this.ctx.lineWidth = 2.5;
+            this.ctx.stroke();
+            this.ctx.restore();
         }
 
         // Demo-Friendly Guide: Highlight The Forge (Node 1) if Chapter 1 is active/pending
@@ -423,8 +548,10 @@ export class OverworldScene {
             const targetW = playerImg.width * (targetH / playerImg.height);
             
             let bounceY = 0;
-            if (this.keys.w || this.keys.a || this.keys.s || this.keys.d || this.keys.ArrowUp || this.keys.ArrowDown || this.keys.ArrowLeft || this.keys.ArrowRight) {
-                bounceY = Math.sin(performance.now() / 100) * 3;
+            const isMoving = this.isAutoTravelling || this.keys.w || this.keys.a || this.keys.s || this.keys.d ||
+                this.keys.ArrowUp || this.keys.ArrowDown || this.keys.ArrowLeft || this.keys.ArrowRight;
+            if (isMoving) {
+                bounceY = Math.sin(performance.now() / 90) * 3;
             }
 
             if (this.facing === 'left') {
