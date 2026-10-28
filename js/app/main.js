@@ -6,6 +6,7 @@
 import { Router } from './Router.js';
 import { loadProgress, initProgress, setLanguage } from '../services/progress.js';
 import { Assets } from '../engine/AssetLoader.js';
+import { AudioSys } from '../engine/AudioManager.js';
 
 // Boot the app
 document.addEventListener('DOMContentLoaded', async () => {
@@ -75,6 +76,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (landingToggle && landingToggle.value !== lang) landingToggle.value = lang;
         }
     });
+
+    const audioBtn = document.getElementById('audio-toggle-btn');
+    const hudAudioBtn = document.getElementById('hud-audio-toggle');
+    if (audioBtn) {
+        audioBtn.addEventListener('click', () => AudioSys.toggleMute());
+    }
+    if (hudAudioBtn) {
+        hudAudioBtn.addEventListener('click', () => AudioSys.toggleMute());
+    }
+    AudioSys.updateUI();
 
     console.log('⚔️ OSS Quest ready');
 });

@@ -1,45 +1,83 @@
 /**
  * OSS Quest — Audio Manager
- * Handles ambient looping background music.
+ * Handles ambient looping background music with persistent mute/unmute preference.
  */
+
+const AUDIO_STORAGE_KEY = 'oss_quest_audio_muted';
 
 export class AudioManager {
     constructor() {
         this.bgm = new Audio('assets/background.mp3');
         this.bgm.loop = true;
-        this.bgm.volume = 1.0;
+        this.bgm.volume = 0.7;
         this.isPlaying = false;
         
-        // Robust fallback: if audio was blocked on load, this will start it 
-        // the moment the user clicks or presses any key.
+        // Restore mute preference
+        this.isMuted = false;
+        try {
+            this.isMuted = localStorage.getItem(AUDIO_STORAGE_KEY) === 'true';
+        } catch (e) {}
+
+        this.bgm.muted = this.isMuted;
+        
+        // Autoplay unlock fallback
         const unlock = () => {
-            if (this.isPlaying) return;
+            if (this.isPlaying || this.isMuted) return;
             this.bgm.play().then(() => {
                 this.isPlaying = true;
-                // Success! We can remove these listeners now.
                 document.removeEventListener('click', unlock);
                 document.removeEventListener('keydown', unlock);
-            }).catch(() => {}); // If it still fails, keep the listeners active
+            }).catch(() => {});
         };
-        document.addEventListener('click', unlock);
-        document.addEventListener('keydown', unlock);
+        document.addEventListener('click', unlock, { once: true });
+        document.addEventListener('keydown', unlock, { once: true });
+
+        // Update UI buttons on boot
+        setTimeout(() => this.updateUI(), 100);
     }
     
     playTheme(themeName) {
-        console.log(`[Audio] Playing background track: ${themeName}`);
+        if (this.isMuted) return;
         if (!this.isPlaying) {
             this.bgm.play().then(() => {
                 this.isPlaying = true;
             }).catch(e => {
-                console.warn("Browser blocked autoplay:", e);
-                // DO NOT set isPlaying = true here, so the 'unlock' listeners can handle it!
                 this.isPlaying = false;
             });
         }
     }
     
     playSound(soundId) {
-        console.log(`[Audio] Playing sound effect: ${soundId}`);
+        // Sound effect hook (reserved for future SFX)
+    }
+    
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        this.bgm.muted = this.isMuted;
+
+        try {
+            localStorage.setItem(AUDIO_STORAGE_KEY, String(this.isMuted));
+        } catch (e) {}
+
+        if (this.isMuted) {
+            this.bgm.pause();
+            this.isPlaying = false;
+        } else {
+            this.bgm.play().then(() => {
+                this.isPlaying = true;
+            }).catch(() => {});
+        }
+
+        this.updateUI();
+        return this.isMuted;
+    }
+
+    updateUI() {
+        const icon = this.isMuted ? '🔇' : '🔊';
+        const topIcon = document.getElementById('audio-icon');
+        const hudBtn = document.getElementById('hud-audio-toggle');
+        if (topIcon) topIcon.textContent = icon;
+        if (hudBtn) hudBtn.textContent = icon;
     }
     
     stop() {
@@ -52,3 +90,4 @@ export class AudioManager {
 }
 
 export const AudioSys = new AudioManager();
+

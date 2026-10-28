@@ -387,8 +387,8 @@ export function processDialogueText(text, lang = 'en') {
         // Find matching jargon key
         const key = term.toLowerCase().replace(/\s+/g, '-');
         const def = getJargonDefinition(key, lang);
-        if (def.definition) {
-            return `<span class="jargon-inline" data-term="${key}" title="${def.definition}">${term}</span>`;
+        if (def && def.definition) {
+            return `<span class="jargon-inline jargon" data-term="${key}" tabindex="0" title="${def.definition}">${term}<span class="jargon-tip">${def.definition}</span></span>`;
         }
         return `<strong>${term}</strong>`;
     });

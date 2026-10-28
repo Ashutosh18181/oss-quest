@@ -17,6 +17,7 @@ import { getRecommendedRepo } from '../services/github.js';
 import { CHAPTERS } from '../data/chapters.js';
 import { TerminalMinigame } from './TerminalMinigame.js';
 import { AudioSys } from './AudioManager.js';
+import { TouchControls } from './TouchControls.js';
 
 export class VillageScene {
     constructor(sceneManager, villageId) {
@@ -115,12 +116,34 @@ export class VillageScene {
             }
         });
 
+        this._clickHandler = this._handleCanvasClick.bind(this);
+        this.canvas.addEventListener('click', this._clickHandler);
+
         window.addEventListener('keydown', this._keydownHandler);
         window.addEventListener('keyup', this._keyupHandler);
         
         this.dialogue.onComplete = (npc, xp) => this._onQuestComplete(npc, xp);
         this.dialogue.onTriggerCamp = (npc) => this._runCampReveal(npc);
         this.dialogue.onTriggerTerminal = (npc) => this._runTerminal(npc);
+
+        // Mobile touch controls
+        this.touchControls = new TouchControls();
+        this.touchControls.show();
+
+        const updateHintText = (currentLang) => {
+            const hintBar = document.querySelector('.controls-hint-bar');
+            if (!hintBar) return;
+            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 840);
+            if (isTouch) {
+                if (currentLang === 'hi') hintBar.innerHTML = "D-pad — चलें &nbsp;&middot;&nbsp; E / टैप — बात करें / बाहर";
+                else if (currentLang === 'od') hintBar.innerHTML = "D-pad — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E / ଟ୍ୟାପ୍ — କଥା ହୁଅନ୍ତୁ / ବାହାର";
+                else hintBar.innerHTML = "D-pad — move &nbsp;&middot;&nbsp; E / tap — talk / exit";
+            } else {
+                if (currentLang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; E — बात करें / बाहर";
+                else if (currentLang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E — କଥା ହୁଅନ୍ତୁ / ବାହାର";
+                else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; E — enter / talk";
+            }
+        };
 
         this._langListener = () => {
             this.progress = loadProgress();
@@ -131,12 +154,7 @@ export class VillageScene {
             else if (currentLang === 'od') atmo = `${this.villageDef.name_od || this.villageDef.name} କୁ ସ୍ୱାଗତ।`;
             this.hud.setAtmosphere(atmo);
 
-            const hintBar = document.querySelector('.controls-hint-bar');
-            if (hintBar) {
-                if (currentLang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; E — बात करें / बाहर";
-                else if (currentLang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E — କଥା ହୁଅନ୍ତୁ / ବାହାର";
-                else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; E — enter / talk";
-            }
+            updateHintText(currentLang);
 
             if (this.dialogue.isOpen && this.dialogue.currentNpc) {
                 this.dialogue.open(this.dialogue.currentNpc, currentLang);
@@ -151,12 +169,7 @@ export class VillageScene {
         else if (currentLang === 'od') atmo = `${this.villageDef.name_od || this.villageDef.name} କୁ ସ୍ୱାଗତ।`;
         this.hud.setAtmosphere(atmo);
 
-        const hintBar = document.querySelector('.controls-hint-bar');
-        if (hintBar) {
-            if (currentLang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; E — बात करें / बाहर";
-            else if (currentLang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E — କଥା ହୁଅନ୍ତୁ / ବାହାର";
-            else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; E — enter / talk";
-        }
+        updateHintText(currentLang);
 
         this.renderer.start();
     }
@@ -197,7 +210,43 @@ export class VillageScene {
 
         this._exitMarkerPos = { x: ex, y: ey };
         const dist = Math.sqrt((p.px - ex) ** 2 + (p.py - ey) ** 2);
-        this._nearExit = dist < 55;
+        this._nearExit = dist < 70; // 70px exit radius (increased from 55px)
+    }
+
+    _handleCanvasClick(e) {
+        if (this.dialogue.isOpen || this._isRevealingCamp || this.terminal.isOpen) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
+
+        const worldX = clientX + (this.renderer ? this.renderer.camX : 0);
+        const worldY = clientY + (this.renderer ? this.renderer.camY : 0);
+
+        // 1. Click to talk: check if user clicked on or near an NPC
+        for (const npc of this.npcs) {
+            const clickDist = Math.sqrt((worldX - npc.px)**2 + (worldY - npc.py)**2);
+            if (clickDist < 85 && npc.questState !== 'locked') {
+                const playerDist = Math.sqrt((this.player.px - npc.px)**2 + (this.player.py - npc.py)**2);
+                if (playerDist < 160) {
+                    this.dialogue.open(npc, getLanguage());
+                    this.player.setVelocity(0, 0);
+                    return;
+                }
+            }
+        }
+
+        // 2. Click to exit: check if user clicked on the exit zone
+        if (this._exitMarkerPos) {
+            const exitDist = Math.sqrt((worldX - this._exitMarkerPos.x)**2 + (worldY - this._exitMarkerPos.y)**2);
+            if (exitDist < 60) {
+                const playerDist = Math.sqrt((this.player.px - this._exitMarkerPos.x)**2 + (this.player.py - this._exitMarkerPos.y)**2);
+                if (playerDist < 130) {
+                    this.sceneManager.loadScene('overworld');
+                    return;
+                }
+            }
+        }
     }
 
     _updateNPCStates() {
@@ -219,6 +268,9 @@ export class VillageScene {
     }
 
     _handleKeydown(e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+        }
         if (this.keys.hasOwnProperty(e.key)) this.keys[e.key] = true;
         
         if (e.key.toLowerCase() === 'e') {
@@ -232,25 +284,80 @@ export class VillageScene {
     }
 
     _handleKeyup(e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+        }
         if (this.keys.hasOwnProperty(e.key)) this.keys[e.key] = false;
     }
 
     _drawInteractionPrompt(ctx, npc) {
         const lang = getLanguage();
-        let text = "E — talk to " + npc.name;
-        if (lang === 'hi') text = `E — ${npc.name} से बात करें`;
-        else if (lang === 'od') text = `E — ${npc.name} ସହ କଥା ହୁଅନ୍ତୁ`;
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const actionPrefix = isTouch ? "Tap" : "E";
 
-        ctx.font = 'bold 12px "Space Mono", monospace';
-        const w = ctx.measureText(text).width + 16;
-        const x = npc.px - w/2;
-        const y = npc.py - 30;
+        let text = `${actionPrefix} — talk to ${npc.name}`;
+        if (lang === 'hi') text = `${actionPrefix} — ${npc.name} से बात करें`;
+        else if (lang === 'od') text = `${actionPrefix} — ${npc.name} ସହ କଥା ହୁଅନ୍ତୁ`;
 
+        ctx.save();
+        const bounce = Math.sin(performance.now() / 200) * 3;
+        const yOffset = npc.py - 60 + bounce;
+
+        ctx.font = 'bold 13px "Space Mono", monospace';
+        const labelText = text.replace(`${actionPrefix} — `, '');
+        const badgeW = isTouch ? 36 : 22;
+        const pillW = ctx.measureText(labelText).width + badgeW + 36;
+        const pillH = 28;
+        const x = npc.px - pillW / 2;
+        const y = yOffset - pillH;
+
+        // Drop shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x + 2, y + 3, pillW, pillH, 8);
+        else ctx.rect(x + 2, y + 3, pillW, pillH);
+        ctx.fill();
+
+        // Main pill body
         ctx.fillStyle = '#21201C';
-        ctx.fillRect(x, y, w, 24);
-        ctx.fillStyle = '#FAF8F4';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, y, pillW, pillH, 8);
+        else ctx.rect(x, y, pillW, pillH);
+        ctx.fill();
+
+        // Golden highlight border
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Speech bubble triangle pointing to NPC
+        ctx.fillStyle = '#21201C';
+        ctx.beginPath();
+        ctx.moveTo(npc.px - 6, y + pillH);
+        ctx.lineTo(npc.px + 6, y + pillH);
+        ctx.lineTo(npc.px, y + pillH + 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Golden keycap badge [E] or [Tap]
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x + 5, y + 4, badgeW, pillH - 8, 4);
+        else ctx.rect(x + 5, y + 4, badgeW, pillH - 8);
+        ctx.fill();
+        ctx.fillStyle = '#21201C';
+        ctx.font = 'bold 11px "Space Mono", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(text, npc.px, y + 16);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(actionPrefix, x + 5 + badgeW / 2, y + pillH / 2);
+
+        // Label text
+        ctx.fillStyle = '#FAF8F4';
+        ctx.font = 'bold 12px "Space Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(labelText, x + badgeW + 12, y + pillH / 2 + 1);
+
+        ctx.restore();
     }
 
     _drawExitMarker(ctx) {
@@ -388,12 +495,26 @@ export class VillageScene {
         const card = document.getElementById('match-card');
         if (!card) return;
         const reasonsHTML = scores.reasoning.map(r => `<li>• ${r}</li>`).join('');
+        const badgeHTML = signals.sourceBadge ? `
+            <span style="display:inline-block; margin-bottom: 6px; padding: 3px 10px; background: rgba(232, 163, 61, 0.16); color: var(--c-primary); border: 1px solid rgba(232, 163, 61, 0.4); border-radius: 12px; font-family: var(--f-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">
+                ${signals.sourceBadge}
+            </span>
+        ` : '';
+
+        const issueLinkHTML = signals.issueUrl ? `
+            <div style="background: rgba(180, 80, 42, 0.08); border-left: 3px solid var(--c-primary); padding: 8px 12px; border-radius: 4px; margin-bottom: var(--s-md);">
+                <div style="font-family: var(--f-mono); font-size: 11px; color: var(--c-primary); font-weight: 700; text-transform: uppercase;">Matched Good First Issue</div>
+                <div style="font-weight: 600; font-size: var(--fs-sm); color: var(--c-ink); margin-top: 2px;">${signals.issueTitle || 'Practice Good First Issue'}</div>
+            </div>
+        ` : '';
 
         card.innerHTML = `
             <div class="match-card-header">
+                ${badgeHTML}
                 <div class="match-card-title">${signals.repoName}</div>
                 <div class="match-card-subtitle">${signals.description}</div>
             </div>
+            ${issueLinkHTML}
             <div class="match-card-scores">
                 <div class="score-row">
                     <span class="score-label">Language Fit</span>
@@ -416,8 +537,9 @@ export class VillageScene {
                 <ul style="font-size: var(--fs-sm); color: var(--c-ink-light); line-height: 1.8;">${reasonsHTML}</ul>
             </div>
             <div class="match-card-actions">
-                <a href="${signals.repoUrl}" target="_blank" rel="noopener" class="btn btn--primary">View Repository →</a>
-                <button class="btn btn--ghost" id="match-card-close">Continue Quest</button>
+                ${signals.issueUrl ? `<a href="${signals.issueUrl}" target="_blank" rel="noopener" class="btn btn--primary">View Issue on GitHub →</a>` : ''}
+                <a href="${signals.repoUrl}" target="_blank" rel="noopener" class="btn btn--ghost">View Repo</a>
+                <button class="btn btn--secondary" id="match-card-close">Continue Quest ✓</button>
             </div>
         `;
 
@@ -464,6 +586,13 @@ export class VillageScene {
         }
         window.removeEventListener('keydown', this._keydownHandler);
         window.removeEventListener('keyup', this._keyupHandler);
+        if (this.canvas && this._clickHandler) {
+            this.canvas.removeEventListener('click', this._clickHandler);
+        }
+        if (this.touchControls) {
+            this.touchControls.destroy();
+            this.touchControls = null;
+        }
         if (this._langListener) {
             window.removeEventListener('language-changed', this._langListener);
         }

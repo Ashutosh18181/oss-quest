@@ -27,7 +27,8 @@ export class NPC {
         const dy = player.py - this.py;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        this.isPlayerNear = dist < 60; // 60px interaction radius
+        // Generous interaction radius so player doesn't have to overlap NPC sprite
+        this.isPlayerNear = dist < 110; // 110px interaction radius (increased from 60px)
     }
 
     draw(ctx) {

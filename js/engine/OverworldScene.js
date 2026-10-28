@@ -6,6 +6,7 @@
 import { OVERWORLD } from '../data/village.js';
 import { loadProgress, getLanguage } from '../services/progress.js';
 import { Assets } from './AssetLoader.js';
+import { TouchControls } from './TouchControls.js';
 
 export class OverworldScene {
     constructor(sceneManager) {
@@ -28,6 +29,7 @@ export class OverworldScene {
         
         this.speed = 150; // pixels per second
         this.facing = 'down';
+        this.touchControls = null;
 
         this._langListener = () => this._updateHUD();
     }
@@ -43,6 +45,10 @@ export class OverworldScene {
         window.addEventListener('keydown', this._keydownHandler);
         window.addEventListener('keyup', this._keyupHandler);
         window.addEventListener('language-changed', this._langListener);
+
+        // Mobile / Touch controls
+        this.touchControls = new TouchControls();
+        this.touchControls.show();
         
         // Find highest unlocked chapter to place player marker
         let maxUnlocked = 0;
@@ -101,10 +107,17 @@ export class OverworldScene {
         }
 
         const hintBar = document.querySelector('.controls-hint-bar');
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 840);
         if (hintBar) {
-            if (lang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; E — प्रवेश करें";
-            else if (lang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E — ପ୍ରବେଶ କରନ୍ତୁ";
-            else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; E — enter";
+            if (isTouch) {
+                if (lang === 'hi') hintBar.innerHTML = "D-pad — चलें &nbsp;&middot;&nbsp; E / टैप — प्रवेश करें";
+                else if (lang === 'od') hintBar.innerHTML = "D-pad — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E / ଟ୍ୟାପ୍ — ପ୍ରବେଶ";
+                else hintBar.innerHTML = "D-pad — move &nbsp;&middot;&nbsp; E / tap — enter";
+            } else {
+                if (lang === 'hi') hintBar.innerHTML = "WASD / तीर — चलें &nbsp;&middot;&nbsp; E — प्रवेश करें";
+                else if (lang === 'od') hintBar.innerHTML = "WASD / ତୀର — ଚାଲନ୍ତୁ &nbsp;&middot;&nbsp; E — ପ୍ରବେଶ କରନ୍ତୁ";
+                else hintBar.innerHTML = "WASD / arrows — move &nbsp;&middot;&nbsp; E — enter";
+            }
         }
 
         // Overworld has no atmosphere toast; clear any leftover village atmosphere text
@@ -168,17 +181,17 @@ export class OverworldScene {
     }
 
     _handleClick(e) {
-        // Optional: click to enter if close enough
+        // Direct click to enter any unlocked node on the world map
         if (this.hoverNode && this._isUnlocked(this.hoverNode.id)) {
-            const dist = Math.sqrt((this.hoverNode.x - this.playerPos.x)**2 + (this.hoverNode.y - this.playerPos.y)**2);
-            if (dist < 50) {
-                this._running = false;
-                this.sceneManager.loadScene('village', { villageId: this.hoverNode.id });
-            }
+            this._running = false;
+            this.sceneManager.loadScene('village', { villageId: this.hoverNode.id });
         }
     }
 
     _handleKeydown(e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+        }
         if (this.keys.hasOwnProperty(e.key)) this.keys[e.key] = true;
         
         if (e.key.toLowerCase() === 'e') {
@@ -194,6 +207,9 @@ export class OverworldScene {
     }
 
     _handleKeyup(e) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+        }
         if (this.keys.hasOwnProperty(e.key)) this.keys[e.key] = false;
     }
 
@@ -326,6 +342,71 @@ export class OverworldScene {
                 this.ctx.setLineDash([]);
             }
         }
+
+        // Demo-Friendly Guide: Highlight The Forge (Node 1) if Chapter 1 is active/pending
+        const forgeNode = OVERWORLD.nodes.find(n => n.id === 1);
+        const isForgePending = this.progress?.chapters?.[1] !== 'done';
+        if (forgeNode && isForgePending) {
+            const time = performance.now();
+            const pulse = (time % 1600) / 1600;
+
+            this.ctx.save();
+            // 1. Pulsing golden radar wave around The Forge
+            this.ctx.beginPath();
+            this.ctx.arc(forgeNode.x, forgeNode.y, 16 + pulse * 32, 0, Math.PI * 2);
+            this.ctx.strokeStyle = `rgba(255, 215, 0, ${1 - pulse})`;
+            this.ctx.lineWidth = 2.5;
+            this.ctx.stroke();
+
+            // 2. Animated floating beacon arrow
+            const bounce = Math.sin(time / 180) * 6;
+            const arrowY = forgeNode.y - 42 + bounce;
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.beginPath();
+            this.ctx.moveTo(forgeNode.x - 10, arrowY - 14);
+            this.ctx.lineTo(forgeNode.x + 10, arrowY - 14);
+            this.ctx.lineTo(forgeNode.x, arrowY);
+            this.ctx.closePath();
+            this.ctx.fill();
+            this.ctx.strokeStyle = '#21201C';
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+
+            // 3. Floating quest banner: "Start by talking to Borin the Blacksmith"
+            const lang = getLanguage();
+            let guideText = "⚔️ Start by talking to Borin the Blacksmith at The Forge";
+            if (lang === 'hi') guideText = "⚔️ फ़ोर्ज में लोहार बोरिन से बात करके शुरुआत करें";
+            else if (lang === 'od') guideText = "⚔️ ଫୋର୍ଜରେ କମାର ବୋରିନ୍ ସହ କଥା ହୋଇ ଆରମ୍ଭ କରନ୍ତୁ";
+
+            this.ctx.font = 'bold 12px "Space Mono", monospace';
+            const gw = this.ctx.measureText(guideText).width + 24;
+            const gx = forgeNode.x - gw / 2;
+            const gy = arrowY - 42;
+
+            // Banner shadow
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+            if (this.ctx.roundRect) this.ctx.roundRect(gx + 2, gy + 3, gw, 28, 8);
+            else this.ctx.rect(gx + 2, gy + 3, gw, 28);
+            this.ctx.fill();
+
+            // Banner background
+            this.ctx.fillStyle = '#21201C';
+            if (this.ctx.roundRect) this.ctx.roundRect(gx, gy, gw, 28, 8);
+            else this.ctx.rect(gx, gy, gw, 28);
+            this.ctx.fill();
+
+            // Golden border
+            this.ctx.strokeStyle = '#FFD700';
+            this.ctx.lineWidth = 1.8;
+            this.ctx.stroke();
+
+            // Banner text
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(guideText, forgeNode.x, gy + 14);
+            this.ctx.restore();
+        }
         
         // Draw Player Marker using player_sprite
         this.ctx.save();
@@ -390,6 +471,10 @@ export class OverworldScene {
         this.canvas.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('keydown', this._keydownHandler);
         window.removeEventListener('keyup', this._keyupHandler);
+        if (this.touchControls) {
+            this.touchControls.destroy();
+            this.touchControls = null;
+        }
         if (this._langListener) {
             window.removeEventListener('language-changed', this._langListener);
         }

@@ -42,6 +42,10 @@ export class DialogueSystem {
         window.addEventListener('keydown', (e) => {
             if (!this.isOpen) return;
 
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+
             if (e.key === 'Escape') {
                 this.close();
             }

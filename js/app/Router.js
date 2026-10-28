@@ -57,6 +57,7 @@ export class Router {
         const appUi = document.getElementById('app-ui-layer');
 
         if (page === 'village') {
+            document.body.classList.add('in-game');
             if (topBar) topBar.classList.add('hidden');
             this.container.style.display = 'none';
             if (appUi) appUi.style.display = 'block';
@@ -68,6 +69,7 @@ export class Router {
             // By default load the overworld to let the player choose/walk to the active chapter
             this.sceneManager.loadScene('overworld');
         } else {
+            document.body.classList.remove('in-game');
             if (topBar) topBar.classList.remove('hidden');
             this.container.style.display = 'block';
             if (villageContainer) villageContainer.style.display = 'none';
@@ -89,6 +91,7 @@ export class Router {
     }
 
     _cleanup() {
+        document.body.classList.remove('in-game');
         if (this.currentRoute === 'landing') {
             destroyLanding();
         }

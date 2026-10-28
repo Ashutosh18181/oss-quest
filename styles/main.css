@@ -359,18 +359,35 @@ button, select, input {
 
 
 /* === JARGON CHIP === */
-.jargon {
-    display: inline;
+.jargon,
+.jargon-inline {
+    display: inline-flex;
+    align-items: baseline;
     position: relative;
     border-bottom: 2px dashed var(--c-accent);
     cursor: help;
     font-weight: 600;
     color: var(--c-primary);
-    transition: color var(--t-fast);
+    transition: all var(--t-fast);
+    padding: 0 2px;
 }
 
-.jargon:hover {
+.jargon::after,
+.jargon-inline::after {
+    content: ' ⓘ';
+    font-size: 0.72em;
+    font-weight: 700;
+    color: var(--c-accent);
+    margin-left: 2px;
+    opacity: 0.85;
+}
+
+.jargon:hover,
+.jargon.active,
+.jargon-inline:hover,
+.jargon-inline.active {
     color: var(--c-primary-dark);
+    border-bottom-color: var(--c-primary);
 }
 
 .jargon-tip {
@@ -406,23 +423,43 @@ button, select, input {
 }
 
 .jargon:hover .jargon-tip,
-.jargon.active .jargon-tip {
+.jargon.active .jargon-tip,
+.jargon-inline:hover .jargon-tip,
+.jargon-inline.active .jargon-tip {
     opacity: 1;
     transform: translateX(-50%) scale(1);
     pointer-events: auto;
 }
 
 
+/* === IN-GAME SCROLL LOCK === */
+body.in-game {
+    overflow: hidden !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    position: fixed !important;
+    inset: 0 !important;
+    touch-action: none !important;
+}
+
 /* === VILLAGE & HUD === */
 .village-container {
     position: fixed;
     inset: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden !important;
     z-index: 200;
     background: #000;
+    touch-action: none !important;
 }
 
 #village-canvas {
     display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    touch-action: none !important;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
 }
@@ -520,6 +557,26 @@ button, select, input {
 .hud-lang-toggle:hover,
 .hud-lang-toggle:focus {
     border-color: var(--c-primary);
+}
+
+.hud-audio-btn {
+    font-size: 14px;
+    padding: 2px 7px;
+    background: var(--c-bg);
+    border: var(--border-thin);
+    border-radius: var(--radius-sm);
+    color: var(--c-ink);
+    cursor: pointer;
+    outline: none;
+    align-self: flex-start;
+    line-height: 1.4;
+    transition: all var(--t-fast);
+}
+
+.hud-audio-btn:hover,
+.hud-audio-btn:focus {
+    border-color: var(--c-primary);
+    transform: scale(1.05);
 }
 
 /* Atmosphere Text Overlay */
@@ -664,42 +721,45 @@ button, select, input {
 
 .dialogue-choice-btn {
     text-align: left;
-    padding: var(--s-sm) var(--s-md);
+    padding: 10px 16px;
     background: var(--c-bg);
-    border: var(--border-thin);
+    border: 1.5px solid var(--c-border);
     border-radius: var(--radius-sm);
     font-family: var(--f-body);
     font-size: var(--fs-base);
     color: var(--c-ink);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
     transition: all var(--t-fast);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.dialogue-choice-btn:hover {
-    background: var(--c-ink);
-    color: var(--c-white);
+.dialogue-choice-btn:hover,
+.dialogue-choice-btn:focus {
+    background: #21201C;
+    color: #FAF8F4;
+    border-color: #21201C;
+    transform: translateX(4px);
+    box-shadow: 2px 2px 0 var(--c-primary);
 }
 
 .choice-number {
     font-family: var(--f-mono);
     font-weight: 700;
+    font-size: var(--fs-xs);
     color: var(--c-primary);
-    margin-right: var(--s-xs);
+    background: rgba(180, 80, 42, 0.1);
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
 }
 
-.dialogue-choice-btn:hover .choice-number {
-    color: var(--c-accent);
-}
-
-.jargon-inline {
-    border-bottom: 2px dashed var(--c-accent);
-    cursor: help;
-    font-weight: 600;
-    color: var(--c-primary);
-    position: relative;
-}
-
-.jargon-inline:hover {
-    color: var(--c-primary-dark);
+.dialogue-choice-btn:hover .choice-number,
+.dialogue-choice-btn:focus .choice-number {
+    color: #FFD700;
+    background: rgba(255, 215, 0, 0.2);
 }
 
 /* Build Log */
@@ -1561,6 +1621,32 @@ button, select, input {
         flex-direction: column;
         gap: var(--s-sm);
     }
+
+    /* Dialogue box mobile layout */
+    .dialogue-box {
+        flex-direction: column;
+        padding: var(--s-md);
+        gap: var(--s-sm);
+        bottom: var(--s-md);
+        width: 94%;
+    }
+
+    .dialogue-portrait-container {
+        width: 64px;
+        height: 64px;
+        align-self: flex-start;
+    }
+
+    .dialogue-text {
+        font-size: var(--fs-sm);
+        min-height: 48px;
+        margin-bottom: var(--s-md);
+    }
+
+    .dialogue-choice-btn {
+        padding: 8px 12px;
+        font-size: var(--fs-sm);
+    }
 }
 
 @media (max-width: 480px) {
@@ -1572,3 +1658,147 @@ button, select, input {
     .top-bar-center { display: none; }
     .landing h1 { font-size: var(--fs-2xl); }
 }
+
+/* === SAVE INDICATOR TOAST === */
+.save-indicator {
+    position: fixed;
+    top: var(--s-md);
+    right: var(--s-md);
+    z-index: 9999;
+    background: rgba(33, 32, 28, 0.95);
+    color: #FFD700;
+    border: 1px solid rgba(255, 215, 0, 0.45);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    border-radius: 100px;
+    padding: 6px 14px;
+    font-family: var(--f-mono);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.save-indicator.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* === TOUCH CONTROLS LAYER === */
+.touch-controls-layer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 250;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.touch-controls-layer.hidden {
+    display: none !important;
+}
+
+/* Show touch controls on touch devices or screens under 900px */
+@media (pointer: coarse), (max-width: 900px) {
+    .touch-controls-layer {
+        display: block;
+    }
+}
+
+/* Virtual D-pad */
+.virtual-dpad {
+    position: absolute;
+    bottom: 24px;
+    left: 20px;
+    width: 140px;
+    height: 140px;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dpad-middle-row {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dpad-center {
+    width: 44px;
+    height: 44px;
+    background: rgba(33, 32, 28, 0.6);
+    border-radius: 6px;
+}
+
+.dpad-btn {
+    width: 44px;
+    height: 44px;
+    background: rgba(33, 32, 28, 0.88);
+    border: 2px solid rgba(232, 163, 61, 0.65);
+    border-radius: 10px;
+    color: #FAF8F4;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    transition: transform 0.08s, background 0.08s;
+}
+
+.dpad-btn:active, .dpad-btn.active {
+    background: var(--c-primary);
+    border-color: #FFD700;
+    transform: scale(0.92);
+}
+
+/* Virtual Action Button */
+.virtual-action {
+    position: absolute;
+    bottom: 28px;
+    right: 20px;
+    pointer-events: auto;
+}
+
+.action-btn {
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    background: #21201C;
+    border: 3px solid #FFD700;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    color: #FAF8F4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.08s, background 0.08s;
+}
+
+.action-btn .action-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.action-btn .action-label {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: #FFD700;
+    margin-top: 2px;
+}
+
+.action-btn:active, .action-btn.active {
+    background: var(--c-primary);
+    transform: scale(0.92);
+}
+
